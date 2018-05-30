@@ -8,9 +8,6 @@ Patrick Barks
 #### 1. Preliminaries
 
 ``` r
-# increase console width
-options(width = 120)
-
 # load libraries
 library(readr)
 library(dplyr)
