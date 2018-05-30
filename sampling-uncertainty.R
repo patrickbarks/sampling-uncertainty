@@ -106,15 +106,26 @@ dat_full <- dat_replicated %>%
   filter(!is.na(l0)) %>% 
   mutate(mat_dim = map_int(matU_mean, ~ nrow(.x))) %>% 
   mutate(mat_dim = ifelse(mat_dim > 7, '8+', mat_dim)) %>% 
+  mutate(mat_dim = paste('matrix_dim =', mat_dim)) %>% 
   mutate(spp_int = as.integer(as.factor(SpeciesAccepted)))
 
 # ensure relationship between l0 and var(log lambda) not just function of matrix dim
-ggplot(dat_full, aes(l0, var_log_lambda)) +
+p0 <- ggplot(dat_full, aes(l0, var_log_lambda)) +
   geom_point(shape = 1, size = 3, stroke = 0.7, alpha = 0.9) +
   scale_x_log10() +
   scale_y_log10(labels = LabelFn) +
   facet_wrap(~ mat_dim, nrow = 3) +
-  geom_smooth(method = 'lm')
+  geom_smooth(method = 'lm') +
+  xlab('Life expectancy (years)') +
+  ylab(expression(paste('Variance(log ', lambda, ')'))) +
+  theme(panel.grid = element_blank(),
+        text = element_text(size = 18),
+        axis.text.y = element_text(angle = 90, hjust = 0.5),
+        axis.title.x = element_text(margin = margin(.4, 0, 0, 0, unit = 'cm')),
+        axis.title.y = element_text(margin = margin(0, .4, 0, 0, unit = 'cm')))
+
+# save to file
+ggsave('img/fig_0.png', p0, height = 8, width = 10, units = 'in', dpi = 300)
 
 
 
@@ -362,8 +373,7 @@ l0_plot <- mat_derived_full %>%
             l0_upp90 = quantile(l0, 0.950),
             l0_low99 = quantile(l0, 0.005),
             l0_upp99 = quantile(l0, 0.995)) %>% 
-  mutate(Group = factor(Group, levels = gr_levels, labels = gr_labels)) %>%
-  mutate(var = ' Life expectancy (years)')
+  mutate(Group = factor(Group, levels = gr_levels, labels = gr_labels))
 
 lambda_plot <- mat_derived_full %>% 
   group_by(Group) %>% 
@@ -372,8 +382,7 @@ lambda_plot <- mat_derived_full %>%
             upp90 = quantile(log(lambda), 0.950),
             low99 = quantile(log(lambda), 0.005),
             upp99 = quantile(log(lambda), 0.995)) %>% 
-  mutate(Group = factor(Group, levels = gr_levels, labels = gr_labels)) %>%
-  mutate(var = '~log~lambda')
+  mutate(Group = factor(Group, levels = gr_levels, labels = gr_labels))
 
 var_lambda <- mat_derived_full %>% 
   filter(Group %in% gr_ind_ergodic) %>% 
@@ -393,7 +402,6 @@ var_lambda <- mat_derived_full %>%
             var_l_upp90_chisq = quantile(var_lambda_chisq, 0.950),
             var_l_low99_chisq = quantile(var_lambda_chisq, 0.005),
             var_l_upp99_chisq = quantile(var_lambda_chisq, 0.995)) %>% 
-  mutate(var = '~Variance(log~lambda)') %>% 
   mutate(Group = '1993-1997') %>% 
   mutate(group_int = 1)
 
@@ -413,21 +421,19 @@ stage_display <- posA_ind %>%
   mutate(row = factor(row, labels = stage_names)) %>% 
   mutate(group_int = mean(x_labs$group_int))
 
-## plot left panel, stage-transition matrix
-tt2a <- theme(panel.background = element_rect(fill = 'grey93'),
+## plot stage-transition matrix
+tt2 <- theme(panel.background = element_rect(fill = 'grey93'),
               panel.grid = element_blank(),
-              text = element_text(size = 20),
-              strip.text = element_text(size = 17),
-              plot.title = element_text(size = 18, hjust = 0, vjust = 0),
-              axis.title = element_text(size = 20),
-              axis.text.x = element_text(size = 15, angle = 60, hjust = 1),
+              strip.text = element_text(size = 16),
+              plot.title = element_text(size = 17, hjust = 0, vjust = 0),
+              axis.title = element_text(size = 19),
+              axis.text.x = element_text(size = 14.5, angle = 60, hjust = 1),
               axis.text.y = element_text(size = 14),
-              axis.title.x = element_text(margin = margin(.1, 0, 0, 0, unit = 'cm')),
-              axis.title.y = element_text(margin = margin(0, .5, 0, 0, unit = 'cm')),
+              axis.title.y = element_text(margin = margin(0, .4, 0, 0, unit = 'cm')),
               axis.title.y.right = element_text(hjust = 0, vjust = -0.9),
-              plot.margin = unit(c(5.5, 7.5, 5.5, 5.5), 'pt'))
+              plot.margin = unit(c(5.5, 12.5, 5.5, 5.5), 'pt'))
 
-p2a <- ggplot(tr_plot, aes(x = group_int)) +
+p2 <- ggplot(tr_plot, aes(x = group_int)) +
   geom_text(data = stage_display, aes(y = 0.5, label = display),
             size = 4.5, hjust = 0.5, vjust = 0.5) +
   geom_linerange(aes(ymin = low90, ymax = upp90), size = 1.4, col = 'grey10') +
@@ -438,66 +444,54 @@ p2a <- ggplot(tr_plot, aes(x = group_int)) +
                      sec.axis = dup_axis(breaks = NULL, labels = NULL, name = 'Stage, time t+1')) +
   facet_grid(row ~ col) +
   xlab('Year(s)') + ylab('Transition rate') + ggtitle('Stage, time t') +
-  tt2a
+  tt2
 
-# plot right panel, derived parameters
-tt2b <- theme(panel.background = element_rect(fill = 'grey93'),
+## plot derived parameters
+tt3 <- theme(panel.background = element_rect(fill = 'grey93'),
               panel.grid = element_blank(),
-              text = element_text(size = 20),
               strip.text = element_text(size = 17, hjust = 0),
               plot.title = element_text(size = 18, vjust = 0),
               axis.title = element_text(size = 18),
               axis.text.x = element_text(size = 15, angle = 60, hjust = 1),
               axis.text.y = element_text(size = 14),
-              axis.title.x = element_text(margin = margin(.4, 0, 0, 0, unit = 'cm')),
-              axis.title.y = element_text(margin = margin(0, .5, 0, 0, unit = 'cm')),
-              plot.margin = unit(c(5.5, 5.5, 5.5, 25.5), 'pt'))
+              axis.title.y = element_text(margin = margin(0, .5, 0, 0, unit = 'cm')))
 
-p2b1 <- ggplot(l0_plot, aes(x = Group)) +
+p3a <- ggplot(l0_plot, aes(x = Group)) +
   geom_linerange(aes(ymin = l0_low90, ymax = l0_upp90), size = 1.4, col = 'grey10') +
   geom_linerange(aes(ymin = l0_low99, ymax = l0_upp99), size = 0.6, col = 'grey10') +
   geom_point(data = point_derived, aes(y = l0), shape = 1, size = 3.5, stroke = 0.7) +
   scale_y_log10() +
-  facet_wrap(~ var) +
-  xlab(NULL) + ylab(NULL) + ggtitle('Derived parameters') +
-  tt2b + theme(axis.text.x = element_blank(), axis.ticks.x = element_blank())
+  xlab(' ') + ylab(NULL) + ggtitle('Life expectancy (years)') +
+  tt3
 
-p2b2 <- ggplot(lambda_plot, aes(x = Group)) +
+p3b <- ggplot(lambda_plot, aes(x = Group)) +
   geom_hline(yintercept = 0, linetype = 2, alpha = 0.3) +
   geom_linerange(aes(ymin = low90, ymax = upp90), size = 1.4, col = 'grey10') +
   geom_linerange(aes(ymin = low99, ymax = upp99), size = 0.6, col = 'grey10') +
-  geom_point(data = point_derived, aes(y = log(lambda)), shape = 1, size = 3.5,
-             stroke = 0.7) +
-  facet_wrap(~ var, labeller = label_parsed) +
-  xlab(NULL) + ylab(NULL) +
-  tt2b
+  geom_point(data = point_derived, aes(y = log(lambda)), shape = 1, size = 3.5, stroke = 0.7) +
+  xlab('Year(s)') + ylab(NULL) + ggtitle(expression(paste('log ', lambda))) +
+  tt3
 
-p2b3 <- ggplot(var_lambda, aes(x = group_int)) +
+p3c <- ggplot(var_lambda, aes(x = group_int)) +
   geom_linerange(aes(ymin = var_l_low90, ymax = var_l_upp90), size = 1.4) +
   geom_linerange(aes(ymin = var_l_low99, ymax = var_l_upp99), size = 0.6) +
-  geom_point(data = point_var_lambda, aes(x = 1, y = var_lambda), shape = 1,
-             size = 3.5, stroke = 0.7) +
+  geom_point(data = point_var_lambda, aes(x = 1, y = var_lambda), shape = 1, size = 3.5, stroke = 0.7) +
   coord_cartesian(ylim = c(c(0.0002, 0.03))) +
   scale_x_continuous(limits = c(0.5, 1.5), breaks = 1, labels = var_lambda$Group) +
   scale_y_log10(breaks = c(0.001, 0.01, 0.1), labels = LabelFn) +
-  facet_wrap(~ var, labeller = label_parsed) +
-  xlab('Year(s)') + ylab(NULL) +
-  tt2b + theme(axis.text.x = element_text(angle = 0, hjust = 0.5))
+  xlab(NULL) + ylab(NULL) + ggtitle(expression(paste('Variance(log ', lambda, ')'))) +
+  tt3
 
 # arrange all panels
-g2a <- ggplotGrob(p2a)
-g2b1 <- ggplotGrob(p2b1)
-g2b2 <- ggplotGrob(p2b2)
-g2b3 <- ggplotGrob(p2b3)
+g3a <- ggplotGrob(p3a)
+g3b <- ggplotGrob(p3b)
+g3c <- ggplotGrob(p3c)
 
-g2b <- arrangeGrob(rbind(g2b1, g2b2, g2b3, size = 'last'))
-g2 <- grid.arrange(g2a, g2b, ncol = 2, widths = c(0.72, 0.28))
+g3 <- arrangeGrob(cbind(g3a, g3b, g3c, size = 'first'))
 
-dev.off()
-quartz(height = 10, width = 14)
-grid.arrange(g2)
-
-ggsave('img/fig_2.png', g2, height = 10, width = 14, units = 'in', dpi = 300)
+## save plots to file
+ggsave('img/fig_2.png', p2, height = 10, width = 10, units = 'in', dpi = 300)
+ggsave('img/fig_3.png', g3, height = 4.8, width = 10, units = 'in', dpi = 300)
 
 
 
@@ -507,8 +501,7 @@ ggsave('img/fig_2.png', g2, height = 10, width = 14, units = 'in', dpi = 300)
 
 # arrange data
 l0_plot_pooled <- l0_plot %>% 
-  filter(Group == '1993-98 (Pooled)') %>% 
-  dplyr::select(-var)
+  filter(Group == '1993-98 (Pooled)')
 
 kiviniemi_plot <- var_lambda %>%
   dplyr::select(Group, group_int, var_l_low90, var_l_upp90, var_l_low99, var_l_upp99) %>% 
@@ -521,7 +514,7 @@ kiviniemi_plot <- var_lambda %>%
   mutate(l0_upp99 = l0_plot_pooled$l0_upp99)
 
 # plot
-p3 <- ggplot(kiviniemi_plot, aes(l0, var_log_lambda)) +
+p4 <- ggplot(kiviniemi_plot, aes(l0, var_log_lambda)) +
   geom_point(data = dat_full, shape = 1, size = 3, stroke = 0.7, alpha = 0.3) +
   geom_point(shape = 1, size = 3) +
   geom_linerange(aes(ymin = var_l_low90, ymax = var_l_upp90), size = 1.3) +
@@ -536,7 +529,7 @@ p3 <- ggplot(kiviniemi_plot, aes(l0, var_log_lambda)) +
   tt1
 
 # save to file
-ggsave('img/fig_3.png', p3, height = 8, width = 10, units = 'in', dpi = 300)
+ggsave('img/fig_4.png', p4, height = 8, width = 10, units = 'in', dpi = 300)
 
 
 
@@ -601,7 +594,7 @@ pred_error <- tibble(mu_alpha_error, mu_beta_error, pred_x = list(pred_x)) %>%
             pred_upp = quantile(pred, 0.975))
 
 # plot
-p4 <- ggplot(dat_full_sim, aes(x = l0, y = var_log_lambda)) +
+p5 <- ggplot(dat_full_sim, aes(x = l0, y = var_log_lambda)) +
   geom_point(shape = 1, size = 3, stroke = 0.7, alpha = 0.25) +
   geom_linerange(aes(ymin = y_low, ymax = y_upp), alpha = 0.25) +
   geom_errorbarh(aes(xmin = x_low, xmax = x_upp), height = 0, alpha = 0.25) +
@@ -617,6 +610,6 @@ p4 <- ggplot(dat_full_sim, aes(x = l0, y = var_log_lambda)) +
   tt1
 
 # save to file
-ggsave('img/fig_4.png', p4, height = 8, width = 10, units = 'in', dpi = 300)
+ggsave('img/fig_5.png', p5, height = 8, width = 10, units = 'in', dpi = 300)
 
 
