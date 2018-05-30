@@ -72,7 +72,7 @@ dat_replicated <- compadre_tidy_sub %>%
          MatrixEndYear - MatrixStartYear == 1) %>%
   mutate(MatrixYears = paste(MatrixStartYear, MatrixEndYear)) %>%
   mutate(lambda = map_dbl(matA, GetLambda)) %>% 
-  mutate(ergodic = map_dbl(matA, popdemo::is.matrix_ergodic)) %>% 
+  mutate(ergodic = map_lgl(matA, popdemo::is.matrix_ergodic)) %>% 
   filter(lambda != 0) %>% 
   group_by(SpeciesPop) %>%
   mutate(n_year = length(unique(MatrixYears[ergodic == TRUE])),
@@ -591,7 +591,7 @@ mu_beta_error <- rstan::extract(stan_fit_error, 'mu_beta')$mu_beta
 
 # posterior samples for best fit line and 95% credible interval
 pred_error <- tibble(mu_alpha_error, mu_beta_error, pred_x = list(pred_x)) %>% 
-  mutate(pred = pmap(list(mu_alpha, mu_beta, pred_x), ~ ..1 + ..2 * ..3)) %>% 
+  mutate(pred = pmap(list(mu_alpha_error, mu_beta_error, pred_x), ~ ..1 + ..2 * ..3)) %>% 
   dplyr::select(pred_x, pred) %>% 
   unnest() %>% 
   mutate(pred_x = 10^pred_x, pred = 10^pred) %>% 
