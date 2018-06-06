@@ -12,7 +12,6 @@ knitr::opts_chunk$set(echo = TRUE)
 &nbsp;
 
 #### 1. Preliminaries
-
 ```{r, message = F, warning = F}
 # load libraries
 library(readr)
@@ -59,11 +58,68 @@ compadre_tidy$matA[[satterthwaite_fix]][5,5] <- 0.342
 
 &nbsp;
 
-#### 2. Subset COMPADRE to populations of interest, and calculate life expectancy (l<sub>0</sub>) and variance(log &#955;)
-
+#### 2. Example sampling distributions for binomial parameter
 ```{r}
-# initial subset: herbaceous perennial, unmanipulated, wild, dimension > 2,
-#  repro/survival processes divided, periodicity == 1, no NA
+# population probability of survival
+p <- seq(0, 1, 0.001)
+
+# number surviving (successes)
+x1 <- 2
+x2 <- 20
+
+# sample size (# trials)
+n1 <- 5
+n2 <- 50
+
+# likelihood
+l1 <- dbinom(x1, n1, p)
+l2 <- dbinom(x2, n2, p)
+
+# normalizing constant (to obtain posterior probability)
+c1 <- integrate(function (p) dbinom(x1, n1, p), lower = 0, upper = 1)$value
+c2 <- integrate(function (p) dbinom(x2, n2, p), lower = 0, upper = 1)$value
+
+# posterior probability (assuming flat prior)
+pp1 <- l1 / c1
+pp2 <- l2 / c2
+
+# arrange data
+df1 <- data.frame(p, y = pp1) %>% mutate(type = 'N = 5 (2 survive)')
+df2 <- data.frame(p, y = pp2) %>% mutate(type = 'N = 50 (20 survive)')
+
+df_full <- rbind.data.frame(df1, df2)
+
+# plot
+tt1 <- theme(panel.grid = element_blank(),
+             text = element_text(size = 18),
+             strip.text = element_text(size = 15.5),
+             axis.title = element_text(size = 20),
+             panel.background = element_rect(fill = 'grey92'),
+             axis.title.x = element_text(margin = margin(.35, 0, 0, 0, unit = 'cm')),
+             axis.title.y = element_text(margin = margin(0, .4, 0, 0, unit = 'cm')))
+
+p1 <- ggplot(df_full) +
+  geom_ribbon(aes(p, ymin = 0, ymax = y), fill = 'darkred', alpha = 0.35) +
+  geom_line(aes(p, y)) +
+  geom_linerange(data = filter(df_full, p == 0.4),
+                 aes(x = p, ymin = 0, ymax = y), linetype = 2, alpha = 0.6) +
+  facet_wrap(~ type, nrow = 2) +
+  scale_x_continuous(breaks = seq(0, 1, 0.1)) +
+  xlab('Population survival rate') + ylab('Probability density') +
+  tt1
+```
+
+```{r, out.width = "500px"}
+knitr::include_graphics("img/fig_1.png")
+```
+
+&nbsp;
+&nbsp;
+
+#### 3. Subset COMPADRE to populations of interest, and calculate life expectancy (l<sub>0</sub>) and variance(log &#955;)
+```{r}
+## initial subset: herbaceous perennial, unmanipulated, wild, dimension > 2,
+# repro/survival processes divided, periodicity == 1, no NA
 compadre_tidy_sub <- compadre_tidy %>%
   filter(OrganismType == 'Herbaceous perennial',
          MatrixSplit == 'Divided',
@@ -77,8 +133,8 @@ compadre_tidy_sub <- compadre_tidy %>%
   mutate(NA_matA = map_lgl(matA, ~ any(is.na(.x)))) %>%
   filter(NA_matU == FALSE, NA_matU == FALSE)
 
-# subset to populations with at least 3 annual matrices; matA must be ergodic,
-#  matU/matF must not be constant over all years, lambda != 0
+## subset to populations with at least 3 annual matrices
+# matA must be ergodic, matU/matF must not be constant over all years, lambda != 0
 dat_replicated <- compadre_tidy_sub %>%
   filter(MatrixComposite == 'Individual',
          MatrixEndYear - MatrixStartYear == 1) %>%
@@ -94,8 +150,8 @@ dat_replicated <- compadre_tidy_sub %>%
   filter(matU_equal == FALSE, matF_equal == FALSE) %>%
   filter(n_year >= 3)
 
-# calculate mean matU for each population and estimate l0, and ensure perennial
-#  based on mean matU (survivorship to age 3 > 0)
+## calculate mean matU for each population and estimate l0, and ensure perennial
+# based on mean matU (survivorship to age 3 > 0)
 dat_l0 <- dat_replicated %>%
   mutate(startLife = map_int(matrixClass,
                              ~ min(which(.x$MatrixClassOrganized == 'active')))) %>%
@@ -107,18 +163,18 @@ dat_l0 <- dat_replicated %>%
   mutate(perennial = map2_lgl(matU_mean, startLife, CheckPerennial)) %>%
   filter(perennial == TRUE)
 
-# calculate variance(log lambda) and join with life expectancy, and add col for
-#  matrix dimension
-dat_full <- dat_replicated %>% 
-  group_by(SpeciesAccepted, SpeciesAuthor, MatrixPopulation) %>% 
+## calculate variance(log lambda) and join with life expectancy, and add col for
+# matrix dimension
+dat_full <- dat_replicated %>%
+  group_by(SpeciesAccepted, SpeciesAuthor, MatrixPopulation) %>%
   summarize(var_log_lambda = var(log(lambda[ergodic == TRUE]), na.rm = TRUE),
-            n_year = unique(n_year)) %>% 
-  ungroup() %>% 
+            n_year = unique(n_year)) %>%
+  ungroup() %>%
   left_join(dat_l0, by = c('SpeciesAuthor', 'MatrixPopulation')) %>%
-  filter(!is.na(l0)) %>% 
-  mutate(mat_dim = map_int(matU_mean, ~ nrow(.x))) %>% 
-  mutate(mat_dim = ifelse(mat_dim > 7, '8+', mat_dim)) %>% 
-  mutate(mat_dim = paste('matrix_dim =', mat_dim)) %>% 
+  filter(!is.na(l0)) %>%
+  mutate(mat_dim = map_int(matU_mean, ~ nrow(.x))) %>%
+  mutate(mat_dim = ifelse(mat_dim > 7, '8+', mat_dim)) %>%
+  mutate(mat_dim = paste('matrix_dim =', mat_dim)) %>%
   mutate(spp_int = as.integer(as.factor(SpeciesAccepted)))
 
 # ensure relationship between l0 and var(log lambda) not just function of matrix dim
@@ -137,10 +193,14 @@ p0 <- ggplot(dat_full, aes(l0, var_log_lambda)) +
         axis.title.y = element_text(margin = margin(0, .4, 0, 0, unit = 'cm')))
 ```
 
-![](img/fig_0.png)
+```{r, out.width = "700px"}
+knitr::include_graphics("img/fig_0.png")
+```
+
+&nbsp;
 &nbsp;
 
-#### 3. Model relationship between l<sub>0</sub> and var(log &#955;), assuming zero measurement error
+#### 4. Model relationship between l<sub>0</sub> and var(log &#955;), assuming zero measurement error
 
 ```{r}
 # compile stan model
@@ -185,14 +245,14 @@ df_pred <- tibble(mu_alpha, mu_beta, pred_x = list(pred_x)) %>%
             pred_upp = quantile(pred, 0.975))
 
 # plot
-tt1 <- theme(panel.grid = element_blank(),
+tt2 <- theme(panel.grid = element_blank(),
             text = element_text(size = 18),
             axis.title = element_text(size = 20),
             panel.background = element_rect(fill = 'grey92'),
             axis.title.x = element_text(margin = margin(.3, 0, 0, 0, unit = 'cm')),
             axis.title.y = element_text(margin = margin(0, .2, 0, 0, unit = 'cm')))
 
-p1 <- ggplot(dat_full, aes(x = pred_x)) +
+p2 <- ggplot(dat_full, aes(x = pred_x)) +
   geom_line(data = df_pred, aes(y = pred_med), lwd = 1.6, col = 'darkblue') +
   geom_ribbon(data = df_pred, aes(ymin = pred_low, ymax = pred_upp), alpha = 0.2) +
   geom_point(aes(l0, var_log_lambda), shape = 1, size = 3, alpha = 0.7) +
@@ -201,13 +261,17 @@ p1 <- ggplot(dat_full, aes(x = pred_x)) +
   coord_cartesian(xlim = c(1.05, 450), ylim = c(0.000008, 3.5)) +
   xlab('Life expectancy (years)') +
   ylab(expression(paste('Variance(log ', lambda, ')'))) +
-  tt1
+  tt2
 ```
 
-![](img/fig_1.png)
+```{r, out.width = "700px"}
+knitr::include_graphics("img/fig_2.png")
+```
+
+&nbsp;
 &nbsp;
 
-#### 4. Model sampling uncertainty in transition rates and derived parameters for _Agrimonia eupatoria_ population 'B' from [Kiviniemi (2002)](https://doi.org/10.1023/A:1015506019670)
+#### 5. Model sampling uncertainty in transition rates and derived parameters for _Agrimonia eupatoria_ population 'B' from [Kiviniemi (2002)](https://doi.org/10.1023/A:1015506019670)
 
 ```{r, message = F}
 # read stage sample size data
@@ -408,29 +472,29 @@ var_lambda <- mat_derived_full %>%
             var_l_upp90_chisq = quantile(var_lambda_chisq, 0.950),
             var_l_low99_chisq = quantile(var_lambda_chisq, 0.005),
             var_l_upp99_chisq = quantile(var_lambda_chisq, 0.995)) %>%
-  mutate(Group = '1993-1997') %>%
+  mutate(Group = '1993-1998') %>%
   mutate(group_int = 1)
 
 ## additional data frames to help with plotting
 # year labels
-x_labs <- tr_plot %>% 
-  dplyr::select(group_int, Group) %>% 
-  unique() %>% 
+x_labs <- tr_plot %>%
+  dplyr::select(group_int, Group) %>%
+  unique() %>%
   arrange(group_int)
 
 # df to 'x' out stage-transitions that are not possible
-stage_display <- posA_ind %>% 
-  mutate(display = '') %>% 
-  right_join(expand.grid(col = 1:mat_dim, row = 1:mat_dim), by = c('col', 'row')) %>% 
-  mutate(display = ifelse(is.na(display), 'x', display)) %>% 
-  mutate(col = factor(col, labels = stage_names)) %>% 
-  mutate(row = factor(row, labels = stage_names)) %>% 
+stage_display <- posA_ind %>%
+  mutate(display = '') %>%
+  right_join(expand.grid(col = 1:mat_dim, row = 1:mat_dim), by = c('col', 'row')) %>%
+  mutate(display = ifelse(is.na(display), 'x', display)) %>%
+  mutate(col = factor(col, labels = stage_names)) %>%
+  mutate(row = factor(row, labels = stage_names)) %>%
   mutate(group_int = mean(x_labs$group_int))
 ```
 
 ```{r, message = F, warning = F}
-# plot stage-transition matrix
-tt2 <- theme(panel.background = element_rect(fill = 'grey93'),
+## plot stage-transition matrix
+tt3 <- theme(panel.background = element_rect(fill = 'grey93'),
               panel.grid = element_blank(),
               strip.text = element_text(size = 16),
               plot.title = element_text(size = 17, hjust = 0, vjust = 0),
@@ -441,7 +505,7 @@ tt2 <- theme(panel.background = element_rect(fill = 'grey93'),
               axis.title.y.right = element_text(hjust = 0, vjust = -0.9),
               plot.margin = unit(c(5.5, 12.5, 5.5, 5.5), 'pt'))
 
-p2 <- ggplot(tr_plot, aes(x = group_int)) +
+p3 <- ggplot(tr_plot, aes(x = group_int)) +
   geom_text(data = stage_display, aes(y = 0.5, label = display),
             size = 4.5, hjust = 0.5, vjust = 0.5) +
   geom_linerange(aes(ymin = low90, ymax = upp90), size = 1.4, col = 'grey10') +
@@ -452,15 +516,16 @@ p2 <- ggplot(tr_plot, aes(x = group_int)) +
                      sec.axis = dup_axis(breaks = NULL, labels = NULL, name = 'Stage, time t+1')) +
   facet_grid(row ~ col) +
   xlab('Year(s)') + ylab('Transition rate') + ggtitle('Stage, time t') +
-  tt2
-
+  tt3
 ```
 
-![](img/fig_2.png)
+```{r, out.width = "700px"}
+knitr::include_graphics("img/fig_3.png")
+```
 
 ```{r, message = F, warning = F}
-# plot derived parameters
-tt3 <- theme(panel.background = element_rect(fill = 'grey93'),
+## plot derived parameters
+tt4 <- theme(panel.background = element_rect(fill = 'grey93'),
               panel.grid = element_blank(),
               strip.text = element_text(size = 17, hjust = 0),
               plot.title = element_text(size = 18, vjust = 0),
@@ -469,23 +534,23 @@ tt3 <- theme(panel.background = element_rect(fill = 'grey93'),
               axis.text.y = element_text(size = 14),
               axis.title.y = element_text(margin = margin(0, .5, 0, 0, unit = 'cm')))
 
-p3a <- ggplot(l0_plot, aes(x = Group)) +
+p4a <- ggplot(l0_plot, aes(x = Group)) +
   geom_linerange(aes(ymin = l0_low90, ymax = l0_upp90), size = 1.4, col = 'grey10') +
   geom_linerange(aes(ymin = l0_low99, ymax = l0_upp99), size = 0.6, col = 'grey10') +
   geom_point(data = point_derived, aes(y = l0), shape = 1, size = 3.5, stroke = 0.7) +
   scale_y_log10() +
   xlab(' ') + ylab(NULL) + ggtitle('Life expectancy (years)') +
-  tt3
+  tt4
 
-p3b <- ggplot(lambda_plot, aes(x = Group)) +
+p4b <- ggplot(lambda_plot, aes(x = Group)) +
   geom_hline(yintercept = 0, linetype = 2, alpha = 0.3) +
   geom_linerange(aes(ymin = low90, ymax = upp90), size = 1.4, col = 'grey10') +
   geom_linerange(aes(ymin = low99, ymax = upp99), size = 0.6, col = 'grey10') +
   geom_point(data = point_derived, aes(y = log(lambda)), shape = 1, size = 3.5, stroke = 0.7) +
   xlab('Year(s)') + ylab(NULL) + ggtitle(expression(paste('log ', lambda))) +
-  tt3
+  tt4
 
-p3c <- ggplot(var_lambda, aes(x = group_int)) +
+p4c <- ggplot(var_lambda, aes(x = group_int)) +
   geom_linerange(aes(ymin = var_l_low90, ymax = var_l_upp90), size = 1.4) +
   geom_linerange(aes(ymin = var_l_low99, ymax = var_l_upp99), size = 0.6) +
   geom_point(data = point_var_lambda, aes(x = 1, y = var_lambda), shape = 1, size = 3.5, stroke = 0.7) +
@@ -493,20 +558,24 @@ p3c <- ggplot(var_lambda, aes(x = group_int)) +
   scale_x_continuous(limits = c(0.5, 1.5), breaks = 1, labels = var_lambda$Group) +
   scale_y_log10(breaks = c(0.001, 0.01, 0.1), labels = LabelFn) +
   xlab(NULL) + ylab(NULL) + ggtitle(expression(paste('Variance(log ', lambda, ')'))) +
-  tt3
+  tt4
 
 # arrange all panels
-g3a <- ggplotGrob(p3a)
-g3b <- ggplotGrob(p3b)
-g3c <- ggplotGrob(p3c)
+g4a <- ggplotGrob(p4a)
+g4b <- ggplotGrob(p4b)
+g4c <- ggplotGrob(p4c)
 
-g3 <- arrangeGrob(cbind(g3a, g3b, g3c, size = 'first'))
+g4 <- arrangeGrob(cbind(g4a, g4b, g4c, size = 'first'))
 ```
 
-![](img/fig_3.png)
+```{r, out.width = "700px"}
+knitr::include_graphics("img/fig_4.png")
+```
+
+&nbsp;
 &nbsp;
 
-#### 5. Add error bars for _Agrimonia eupatoria_ population 'B' to initial plot
+#### 6. Add error bars for _Agrimonia eupatoria_ population 'B' to initial plot
 
 ```{r}
 # arrange data
@@ -524,7 +593,7 @@ kiviniemi_plot <- var_lambda %>%
   mutate(l0_upp99 = l0_plot_pooled$l0_upp99)
 
 # plot
-p3 <- ggplot(kiviniemi_plot, aes(l0, var_log_lambda)) +
+p5 <- ggplot(kiviniemi_plot, aes(l0, var_log_lambda)) +
   geom_point(data = dat_full, shape = 1, size = 3, stroke = 0.7, alpha = 0.3) +
   geom_point(shape = 1, size = 3) +
   geom_linerange(aes(ymin = var_l_low90, ymax = var_l_upp90), size = 1.3) +
@@ -536,13 +605,17 @@ p3 <- ggplot(kiviniemi_plot, aes(l0, var_log_lambda)) +
   coord_cartesian(xlim = c(1.05, 450), ylim = c(0.000008, 3.5)) +
   xlab('Life expectancy (years)') +
   ylab(expression(paste('Variance(log ', lambda, ')'))) +
-  tt1
+  tt2
 ```
 
-![](img/fig_4.png)
+```{r, out.width = "700px"}
+knitr::include_graphics("img/fig_5.png")
+```
+
+&nbsp;
 &nbsp;
 
-#### 6. Redo regression analysis with simulated measurement error in l<sub>0</sub> and var(log &#955;)
+#### 7. Redo regression analysis with simulated measurement error in l<sub>0</sub> and var(log &#955;)
 
 ```{r}
 # simulate error in l0 and var(log lambda)
@@ -591,7 +664,7 @@ mu_beta_error <- rstan::extract(stan_fit_error, 'mu_beta')$mu_beta
 
 # posterior samples for best fit line and 95% credible interval
 pred_error <- tibble(mu_alpha_error, mu_beta_error, pred_x = list(pred_x)) %>%
-  mutate(pred = pmap(list(mu_alpha, mu_beta, pred_x), ~ ..1 + ..2 * ..3)) %>%
+  mutate(pred = pmap(list(mu_alpha_error, mu_beta_error, pred_x), ~ ..1 + ..2 * ..3)) %>%
   dplyr::select(pred_x, pred) %>%
   unnest() %>%
   mutate(pred_x = 10^pred_x, pred = 10^pred) %>%
@@ -601,7 +674,7 @@ pred_error <- tibble(mu_alpha_error, mu_beta_error, pred_x = list(pred_x)) %>%
             pred_upp = quantile(pred, 0.975))
 
 # plot
-p4 <- ggplot(dat_full_sim, aes(x = l0, y = var_log_lambda)) +
+p6 <- ggplot(dat_full_sim, aes(x = l0, y = var_log_lambda)) +
   geom_point(shape = 1, size = 3, stroke = 0.7, alpha = 0.25) +
   geom_linerange(aes(ymin = y_low, ymax = y_upp), alpha = 0.25) +
   geom_errorbarh(aes(xmin = x_low, xmax = x_upp), height = 0, alpha = 0.25) +
@@ -614,7 +687,9 @@ p4 <- ggplot(dat_full_sim, aes(x = l0, y = var_log_lambda)) +
   coord_cartesian(xlim = c(1.05, 450), ylim = c(0.000008, 3.5)) +
   xlab('Life expectancy (years)') +
   ylab(expression(paste('Variance(log ', lambda, ')'))) +
-  tt1
+  tt2
 ```
 
-![](img/fig_5.png)
+```{r, out.width = "700px"}
+knitr::include_graphics("img/fig_6.png")
+```

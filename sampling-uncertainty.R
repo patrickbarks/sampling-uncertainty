@@ -14,7 +14,7 @@ library(popbio)
 library(popdemo)
 library(rstan)
 
-## set options for rstan library, and compile relevent models
+## set options for rstan library
 rstan_options(auto_write = TRUE)
 options(mc.cores = parallel::detectCores())
 
@@ -47,7 +47,64 @@ compadre_tidy$matA[[satterthwaite_fix]][5,5] <- 0.342
 
 
 
-###### 2. Subset COMPADRE to datasets of interest, and calculate life expectancy
+###### 2. Example sampling distributions for binomial parameter
+
+# population probability of survival
+p <- seq(0, 1, 0.001)
+
+# number surviving (successes)
+x1 <- 2
+x2 <- 20
+
+# sample size (# trials)
+n1 <- 5
+n2 <- 50
+
+# likelihood
+l1 <- dbinom(x1, n1, p)
+l2 <- dbinom(x2, n2, p)
+
+# normalizing constant (to obtain posterior probability)
+c1 <- integrate(function (p) dbinom(x1, n1, p), lower = 0, upper = 1)$value
+c2 <- integrate(function (p) dbinom(x2, n2, p), lower = 0, upper = 1)$value
+
+# posterior probability (assuming flat prior)
+pp1 <- l1 / c1
+pp2 <- l2 / c2
+
+# arrange data
+df1 <- data.frame(p, y = pp1) %>% mutate(type = 'N = 5 (2 survive)')
+df2 <- data.frame(p, y = pp2) %>% mutate(type = 'N = 50 (20 survive)')
+
+df_full <- rbind.data.frame(df1, df2)
+
+# plot
+tt1 <- theme(panel.grid = element_blank(),
+             text = element_text(size = 18),
+             strip.text = element_text(size = 15.5),
+             axis.title = element_text(size = 20),
+             panel.background = element_rect(fill = 'grey92'),
+             axis.title.x = element_text(margin = margin(.35, 0, 0, 0, unit = 'cm')),
+             axis.title.y = element_text(margin = margin(0, .4, 0, 0, unit = 'cm')))
+
+p1 <- ggplot(df_full) +
+  geom_ribbon(aes(p, ymin = 0, ymax = y), fill = 'darkred', alpha = 0.35) +
+  geom_line(aes(p, y)) +
+  geom_linerange(data = filter(df_full, p == 0.4),
+                 aes(x = p, ymin = 0, ymax = y), linetype = 2, alpha = 0.6) +
+  facet_wrap(~ type, nrow = 2) +
+  scale_x_continuous(breaks = seq(0, 1, 0.1)) +
+  xlab('Population survival rate') + ylab('Probability density') +
+  tt1
+
+# save to file
+# ggsave('img/fig_1.png', p1, height = 8, width = 6.5, units = 'in', dpi = 300)
+
+
+
+
+
+###### 3. Subset COMPADRE to datasets of interest, and calculate life expectancy
 # (l0) and variance(log lambda)
 
 ## initial subset: herbaceous perennial, unmanipulated, wild, dimension > 2,
@@ -125,13 +182,13 @@ p0 <- ggplot(dat_full, aes(l0, var_log_lambda)) +
         axis.title.y = element_text(margin = margin(0, .4, 0, 0, unit = 'cm')))
 
 # save to file
-ggsave('img/fig_0.png', p0, height = 8, width = 10, units = 'in', dpi = 300)
+# ggsave('img/fig_0.png', p0, height = 8, width = 10, units = 'in', dpi = 300)
 
 
 
 
 
-###### 3. Model relationship between l0 and var(log lambda), assuming zero
+###### 4. Model relationship between l0 and var(log lambda), assuming zero
 # measurement error
 
 # compile stan model
@@ -176,14 +233,14 @@ df_pred <- tibble(mu_alpha, mu_beta, pred_x = list(pred_x)) %>%
             pred_upp = quantile(pred, 0.975))
 
 # plot
-tt1 <- theme(panel.grid = element_blank(),
+tt2 <- theme(panel.grid = element_blank(),
             text = element_text(size = 18),
             axis.title = element_text(size = 20),
             panel.background = element_rect(fill = 'grey92'),
             axis.title.x = element_text(margin = margin(.3, 0, 0, 0, unit = 'cm')),
             axis.title.y = element_text(margin = margin(0, .2, 0, 0, unit = 'cm')))
 
-p1 <- ggplot(dat_full, aes(x = pred_x)) +
+p2 <- ggplot(dat_full, aes(x = pred_x)) +
   geom_line(data = df_pred, aes(y = pred_med), lwd = 1.6, col = 'darkblue') +
   geom_ribbon(data = df_pred, aes(ymin = pred_low, ymax = pred_upp), alpha = 0.2) +
   geom_point(aes(l0, var_log_lambda), shape = 1, size = 3, alpha = 0.7) +
@@ -192,16 +249,16 @@ p1 <- ggplot(dat_full, aes(x = pred_x)) +
   coord_cartesian(xlim = c(1.05, 450), ylim = c(0.000008, 3.5)) +
   xlab('Life expectancy (years)') +
   ylab(expression(paste('Variance(log ', lambda, ')'))) +
-  tt1
+  tt2
 
 # save to file
-ggsave('img/fig_1.png', p1, height = 8, width = 10, units = 'in', dpi = 300)
+# ggsave('img/fig_2.png', p2, height = 8, width = 10, units = 'in', dpi = 300)
 
 
 
 
 
-##### 4. Model sampling uncertainty in transition rates and derived parameters
+##### 5. Model sampling uncertainty in transition rates and derived parameters
 # for population 'B' from Kiviniemi (Plant Ecology, 2002)
 
 # read stage sample size data
@@ -283,11 +340,11 @@ individ_tr <- individ_sim %>%
   mutate(val = ifelse(is.na(posA), NA, val))
 
 # sampling distribution for mean matrices
-mean_tr <- individ_tr %>% 
-  group_by(rep, row, col) %>% 
-  summarize(val = mean(val), posA = unique(posA)) %>% 
-  ungroup() %>% 
-  mutate(Group = gr_mean) %>% 
+mean_tr <- individ_tr %>%
+  group_by(rep, row, col) %>%
+  summarize(val = mean(val), posA = unique(posA)) %>%
+  ungroup() %>%
+  mutate(Group = gr_mean) %>%
   dplyr::select(Group, rep, row, col, val, posA)
 
 mean_sim <- mean_tr %>% 
@@ -402,7 +459,7 @@ var_lambda <- mat_derived_full %>%
             var_l_upp90_chisq = quantile(var_lambda_chisq, 0.950),
             var_l_low99_chisq = quantile(var_lambda_chisq, 0.005),
             var_l_upp99_chisq = quantile(var_lambda_chisq, 0.995)) %>% 
-  mutate(Group = '1993-1997') %>% 
+  mutate(Group = '1993-1998') %>% 
   mutate(group_int = 1)
 
 ## additional data frames to help with plotting
@@ -422,7 +479,7 @@ stage_display <- posA_ind %>%
   mutate(group_int = mean(x_labs$group_int))
 
 ## plot stage-transition matrix
-tt2 <- theme(panel.background = element_rect(fill = 'grey93'),
+tt3 <- theme(panel.background = element_rect(fill = 'grey93'),
               panel.grid = element_blank(),
               strip.text = element_text(size = 16),
               plot.title = element_text(size = 17, hjust = 0, vjust = 0),
@@ -433,7 +490,7 @@ tt2 <- theme(panel.background = element_rect(fill = 'grey93'),
               axis.title.y.right = element_text(hjust = 0, vjust = -0.9),
               plot.margin = unit(c(5.5, 12.5, 5.5, 5.5), 'pt'))
 
-p2 <- ggplot(tr_plot, aes(x = group_int)) +
+p3 <- ggplot(tr_plot, aes(x = group_int)) +
   geom_text(data = stage_display, aes(y = 0.5, label = display),
             size = 4.5, hjust = 0.5, vjust = 0.5) +
   geom_linerange(aes(ymin = low90, ymax = upp90), size = 1.4, col = 'grey10') +
@@ -444,10 +501,10 @@ p2 <- ggplot(tr_plot, aes(x = group_int)) +
                      sec.axis = dup_axis(breaks = NULL, labels = NULL, name = 'Stage, time t+1')) +
   facet_grid(row ~ col) +
   xlab('Year(s)') + ylab('Transition rate') + ggtitle('Stage, time t') +
-  tt2
+  tt3
 
 ## plot derived parameters
-tt3 <- theme(panel.background = element_rect(fill = 'grey93'),
+tt4 <- theme(panel.background = element_rect(fill = 'grey93'),
               panel.grid = element_blank(),
               strip.text = element_text(size = 17, hjust = 0),
               plot.title = element_text(size = 18, vjust = 0),
@@ -456,23 +513,23 @@ tt3 <- theme(panel.background = element_rect(fill = 'grey93'),
               axis.text.y = element_text(size = 14),
               axis.title.y = element_text(margin = margin(0, .5, 0, 0, unit = 'cm')))
 
-p3a <- ggplot(l0_plot, aes(x = Group)) +
+p4a <- ggplot(l0_plot, aes(x = Group)) +
   geom_linerange(aes(ymin = l0_low90, ymax = l0_upp90), size = 1.4, col = 'grey10') +
   geom_linerange(aes(ymin = l0_low99, ymax = l0_upp99), size = 0.6, col = 'grey10') +
   geom_point(data = point_derived, aes(y = l0), shape = 1, size = 3.5, stroke = 0.7) +
   scale_y_log10() +
   xlab(' ') + ylab(NULL) + ggtitle('Life expectancy (years)') +
-  tt3
+  tt4
 
-p3b <- ggplot(lambda_plot, aes(x = Group)) +
+p4b <- ggplot(lambda_plot, aes(x = Group)) +
   geom_hline(yintercept = 0, linetype = 2, alpha = 0.3) +
   geom_linerange(aes(ymin = low90, ymax = upp90), size = 1.4, col = 'grey10') +
   geom_linerange(aes(ymin = low99, ymax = upp99), size = 0.6, col = 'grey10') +
   geom_point(data = point_derived, aes(y = log(lambda)), shape = 1, size = 3.5, stroke = 0.7) +
   xlab('Year(s)') + ylab(NULL) + ggtitle(expression(paste('log ', lambda))) +
-  tt3
+  tt4
 
-p3c <- ggplot(var_lambda, aes(x = group_int)) +
+p4c <- ggplot(var_lambda, aes(x = group_int)) +
   geom_linerange(aes(ymin = var_l_low90, ymax = var_l_upp90), size = 1.4) +
   geom_linerange(aes(ymin = var_l_low99, ymax = var_l_upp99), size = 0.6) +
   geom_point(data = point_var_lambda, aes(x = 1, y = var_lambda), shape = 1, size = 3.5, stroke = 0.7) +
@@ -480,24 +537,24 @@ p3c <- ggplot(var_lambda, aes(x = group_int)) +
   scale_x_continuous(limits = c(0.5, 1.5), breaks = 1, labels = var_lambda$Group) +
   scale_y_log10(breaks = c(0.001, 0.01, 0.1), labels = LabelFn) +
   xlab(NULL) + ylab(NULL) + ggtitle(expression(paste('Variance(log ', lambda, ')'))) +
-  tt3
+  tt4
 
 # arrange all panels
-g3a <- ggplotGrob(p3a)
-g3b <- ggplotGrob(p3b)
-g3c <- ggplotGrob(p3c)
+g4a <- ggplotGrob(p4a)
+g4b <- ggplotGrob(p4b)
+g4c <- ggplotGrob(p4c)
 
-g3 <- arrangeGrob(cbind(g3a, g3b, g3c, size = 'first'))
+g4 <- arrangeGrob(cbind(g4a, g4b, g4c, size = 'first'))
 
 ## save plots to file
-ggsave('img/fig_2.png', p2, height = 10, width = 10, units = 'in', dpi = 300)
-ggsave('img/fig_3.png', g3, height = 4.8, width = 10, units = 'in', dpi = 300)
+# ggsave('img/fig_3.png', p3, height = 10, width = 10, units = 'in', dpi = 300)
+# ggsave('img/fig_4.png', g4, height = 4.8, width = 10, units = 'in', dpi = 300)
 
 
 
 
 
-##### 5. Add error bars from the Kiviniemi population to initial plot
+##### 6. Add error bars from the Kiviniemi population to initial plot
 
 # arrange data
 l0_plot_pooled <- l0_plot %>% 
@@ -514,7 +571,7 @@ kiviniemi_plot <- var_lambda %>%
   mutate(l0_upp99 = l0_plot_pooled$l0_upp99)
 
 # plot
-p4 <- ggplot(kiviniemi_plot, aes(l0, var_log_lambda)) +
+p5 <- ggplot(kiviniemi_plot, aes(l0, var_log_lambda)) +
   geom_point(data = dat_full, shape = 1, size = 3, stroke = 0.7, alpha = 0.3) +
   geom_point(shape = 1, size = 3) +
   geom_linerange(aes(ymin = var_l_low90, ymax = var_l_upp90), size = 1.3) +
@@ -526,16 +583,16 @@ p4 <- ggplot(kiviniemi_plot, aes(l0, var_log_lambda)) +
   coord_cartesian(xlim = c(1.05, 450), ylim = c(0.000008, 3.5)) +
   xlab('Life expectancy (years)') +
   ylab(expression(paste('Variance(log ', lambda, ')'))) +
-  tt1
+  tt2
 
 # save to file
-ggsave('img/fig_4.png', p4, height = 8, width = 10, units = 'in', dpi = 300)
+# ggsave('img/fig_5.png', p5, height = 8, width = 10, units = 'in', dpi = 300)
 
 
 
 
 
-##### 6. Redo initial analysis with simulated measurement error in l0 and
+##### 7. Redo initial analysis with simulated measurement error in l0 and
 # var(log lambda)
 
 # simulate error in l0 and var(log lambda)
@@ -594,7 +651,7 @@ pred_error <- tibble(mu_alpha_error, mu_beta_error, pred_x = list(pred_x)) %>%
             pred_upp = quantile(pred, 0.975))
 
 # plot
-p5 <- ggplot(dat_full_sim, aes(x = l0, y = var_log_lambda)) +
+p6 <- ggplot(dat_full_sim, aes(x = l0, y = var_log_lambda)) +
   geom_point(shape = 1, size = 3, stroke = 0.7, alpha = 0.25) +
   geom_linerange(aes(ymin = y_low, ymax = y_upp), alpha = 0.25) +
   geom_errorbarh(aes(xmin = x_low, xmax = x_upp), height = 0, alpha = 0.25) +
@@ -607,9 +664,8 @@ p5 <- ggplot(dat_full_sim, aes(x = l0, y = var_log_lambda)) +
   coord_cartesian(xlim = c(1.05, 450), ylim = c(0.000008, 3.5)) +
   xlab('Life expectancy (years)') +
   ylab(expression(paste('Variance(log ', lambda, ')'))) +
-  tt1
+  tt2
 
 # save to file
-ggsave('img/fig_5.png', p5, height = 8, width = 10, units = 'in', dpi = 300)
-
+# ggsave('img/fig_6.png', p6, height = 8, width = 10, units = 'in', dpi = 300)
 
