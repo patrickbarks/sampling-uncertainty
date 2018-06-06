@@ -152,14 +152,41 @@ CheckPerennial <- function(matU, startLife, N = 3) {
   return(lx[N] > 0)
 }
 
+# simulate from sampling distribution of sample mean
+SampleMeanSim <- function(y) {
+  if(all(is.na(y))) {
+    return(NA_real_)
+  } else {
+    y_mean <- mean(y)
+    y_se <- sd(y) / sqrt(length(y))
+    return(rnorm(1, y_mean, y_se))
+  }
+}
+
 # simulate from sampling distribution of sample variance
 SampleVarSim <- function(N, y) {
   return((N - 1) * y / rchisq(1, N - 1))
+}
+
+# logit transform
+logit <- function(p) {
+  log(p / (1 - p))
+}
+
+# inverse logit transform
+logit_inv <- function(a) {
+  exp(a) / (exp(a) + 1)
 }
 
 # format plot labels using decimal notation rather than scientific notation
 LabelFn <- function(x) {
   return(formatC(x, format = 'fg'))
 }
+
+
+
+
+
+
 
 
