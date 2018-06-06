@@ -195,7 +195,7 @@ p0 <- ggplot(dat_full, aes(l0, var_log_lambda)) +
 knitr::include_graphics("img/fig_0.png")
 ```
 
-<img src="img/fig_0.png" width="700px" />
+<img src="img/fig_0.png" width="800px" />
 
    
 
@@ -267,7 +267,7 @@ p2 <- ggplot(dat_full, aes(x = pred_x)) +
 knitr::include_graphics("img/fig_2.png")
 ```
 
-<img src="img/fig_2.png" width="700px" />
+<img src="img/fig_2.png" width="800px" />
 
    
 
@@ -523,7 +523,7 @@ p3 <- ggplot(tr_plot, aes(x = group_int)) +
 knitr::include_graphics("img/fig_3.png")
 ```
 
-<img src="img/fig_3.png" width="700px" />
+<img src="img/fig_3.png" width="800px" />
 
 ``` r
 ## plot derived parameters
@@ -574,7 +574,7 @@ g4 <- arrangeGrob(cbind(g4a, g4b, g4c, size = 'first'))
 knitr::include_graphics("img/fig_4.png")
 ```
 
-<img src="img/fig_4.png" width="700px" />
+<img src="img/fig_4.png" width="800px" />
 
    
 
@@ -615,7 +615,7 @@ p5 <- ggplot(kiviniemi_plot, aes(l0, var_log_lambda)) +
 knitr::include_graphics("img/fig_5.png")
 ```
 
-<img src="img/fig_5.png" width="700px" />
+<img src="img/fig_5.png" width="800px" />
 
    
 
@@ -698,4 +698,4 @@ p6 <- ggplot(dat_full_sim, aes(x = l0, y = var_log_lambda)) +
 knitr::include_graphics("img/fig_6.png")
 ```
 
-<img src="img/fig_6.png" width="700px" />
+<img src="img/fig_6.png" width="800px" />

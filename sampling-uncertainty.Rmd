@@ -193,7 +193,7 @@ p0 <- ggplot(dat_full, aes(l0, var_log_lambda)) +
         axis.title.y = element_text(margin = margin(0, .4, 0, 0, unit = 'cm')))
 ```
 
-```{r, out.width = "700px"}
+```{r, out.width = "800px"}
 knitr::include_graphics("img/fig_0.png")
 ```
 
@@ -264,7 +264,7 @@ p2 <- ggplot(dat_full, aes(x = pred_x)) +
   tt2
 ```
 
-```{r, out.width = "700px"}
+```{r, out.width = "800px"}
 knitr::include_graphics("img/fig_2.png")
 ```
 
@@ -519,7 +519,7 @@ p3 <- ggplot(tr_plot, aes(x = group_int)) +
   tt3
 ```
 
-```{r, out.width = "700px"}
+```{r, out.width = "800px"}
 knitr::include_graphics("img/fig_3.png")
 ```
 
@@ -568,7 +568,7 @@ g4c <- ggplotGrob(p4c)
 g4 <- arrangeGrob(cbind(g4a, g4b, g4c, size = 'first'))
 ```
 
-```{r, out.width = "700px"}
+```{r, out.width = "800px"}
 knitr::include_graphics("img/fig_4.png")
 ```
 
@@ -608,7 +608,7 @@ p5 <- ggplot(kiviniemi_plot, aes(l0, var_log_lambda)) +
   tt2
 ```
 
-```{r, out.width = "700px"}
+```{r, out.width = "800px"}
 knitr::include_graphics("img/fig_5.png")
 ```
 
@@ -690,6 +690,6 @@ p6 <- ggplot(dat_full_sim, aes(x = l0, y = var_log_lambda)) +
   tt2
 ```
 
-```{r, out.width = "700px"}
+```{r, out.width = "800px"}
 knitr::include_graphics("img/fig_6.png")
 ```
